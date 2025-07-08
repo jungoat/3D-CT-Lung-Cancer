@@ -1,0 +1,25 @@
+# macOS system file
+.DS_Store
+
+# Python cache
+__pycache__/
+
+# wandb
+wandb/
+
+
+# 개인 툴 디렉토리 및 백업
+tools/
+*_old/
+d/
+
+# 데이터 디렉토리 무시
+data/
+data-unversioned/
+
+# 데이터
+p2ch11/cifar/
+
+# 학습
+runs/
+
