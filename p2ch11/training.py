@@ -34,13 +34,23 @@ class LunaTrainingApp:
             sys_argv = sys.argv[1:]
 
         parser = argparse.ArgumentParser()
-        parser.add_argument('--num-workers',
-            help='Number of worker processes for background data loading',
-            default=4,
+        parser.add_argument('--train-num-workers',
+            help='Number of worker processes for training data loading',
+            default=8,
             type=int,
         )
-        parser.add_argument('--batch-size',
+        parser.add_argument('--val-num-workers',
+            help='Number of worker processes for validation data loading',
+            default=8,
+            type=int,
+        )
+        parser.add_argument('--train-batch-size',
             help='Batch size to use for training',
+            default=64,
+            type=int,
+        )
+        parser.add_argument('--val-batch-size',
+            help='Batch size to use for validation',
             default=64,
             type=int,
         )
@@ -79,15 +89,8 @@ class LunaTrainingApp:
 
     def initModel(self):
         if not self.use_cuda:
-            raise RuntimeError("CUDA is not available. This training script requires a GPU.")
-
-        log.info("Using CUDA; {} device(s).".format(torch.cuda.device_count()))
-        
-        model = LunaModel().to(self.device)  #  먼저 .to("cuda")
-
-        # log 확인
-        log.debug(f"[DEBUG] Model device: {next(model.parameters()).device}")
-
+            raise RuntimeError("CUDA is not available.")
+        model = LunaModel().to(self.device) 
         return model
 
 
@@ -101,14 +104,14 @@ class LunaTrainingApp:
             isValSet_bool=False,
         )
 
-        batch_size = self.cli_args.batch_size
+        batch_size = self.cli_args.train_batch_size
         if self.use_cuda:
             batch_size *= torch.cuda.device_count()
 
         train_dl = DataLoader(
             train_ds,
             batch_size=batch_size,
-            num_workers=self.cli_args.num_workers,
+            num_workers=self.cli_args.train_num_workers,
             pin_memory=self.use_cuda,
         )
 
@@ -120,14 +123,14 @@ class LunaTrainingApp:
             isValSet_bool=True,
         )
 
-        batch_size = self.cli_args.batch_size
+        batch_size = self.cli_args.val_batch_size
         if self.use_cuda:
             batch_size *= torch.cuda.device_count()
 
         val_dl = DataLoader(
             val_ds,
             batch_size=batch_size,
-            num_workers=self.cli_args.num_workers,
+            num_workers=self.cli_args.val_num_workers,
             pin_memory=self.use_cuda,
         )
 
@@ -156,7 +159,7 @@ class LunaTrainingApp:
                 self.cli_args.epochs,
                 len(train_dl),
                 len(val_dl),
-                self.cli_args.batch_size,
+                self.cli_args.train_batch_size,
                 (torch.cuda.device_count() if self.use_cuda else 1),
             ))
 
@@ -196,13 +199,6 @@ class LunaTrainingApp:
 
             loss_var.backward()
             self.optimizer.step()
-
-            # # This is for adding the model graph to TensorBoard.
-            # if epoch_ndx == 1 and batch_ndx == 0:
-            #     with torch.no_grad():
-            #         model = LunaModel()
-            #         self.trn_writer.add_graph(model, batch_tup[0], verbose=True)
-            #         self.trn_writer.close()
 
         self.totalTrainingSamples_count += len(train_dl.dataset)
 
@@ -245,7 +241,7 @@ class LunaTrainingApp:
             label_g[:,1],
         )
         start_ndx = batch_ndx * batch_size
-        end_ndx = start_ndx + label_t.size(0)
+        end_ndx = start_ndx + label_g.size(0)
 
         metrics_g[METRICS_LABEL_NDX, start_ndx:end_ndx] = \
             label_g[:,1].detach()
@@ -358,38 +354,6 @@ class LunaTrainingApp:
                 self.totalTrainingSamples_count,
                 bins=bins,
             )
-
-        # score = 1 \
-        #     + metrics_dict['pr/f1_score'] \
-        #     - metrics_dict['loss/mal'] * 0.01 \
-        #     - metrics_dict['loss/all'] * 0.0001
-        #
-        # return score
-
-    # def logModelMetrics(self, model):
-    #     writer = getattr(self, 'trn_writer')
-    #
-    #     model = getattr(model, 'module', model)
-    #
-    #     for name, param in model.named_parameters():
-    #         if param.requires_grad:
-    #             min_data = float(param.data.min())
-    #             max_data = float(param.data.max())
-    #             max_extent = max(abs(min_data), abs(max_data))
-    #
-    #             # bins = [x/50*max_extent for x in range(-50, 51)]
-    #
-    #             try:
-    #                 writer.add_histogram(
-    #                     name.rsplit('.', 1)[-1] + '/' + name,
-    #                     param.data.cpu().numpy(),
-    #                     # metrics_a[METRICS_PRED_NDX, negHist_mask],
-    #                     self.totalTrainingSamples_count,
-    #                     # bins=bins,
-    #                 )
-    #             except Exception as e:
-    #                 log.error([min_data, max_data])
-    #                 raise
 
 
 if __name__ == '__main__':

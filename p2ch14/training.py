@@ -42,7 +42,7 @@ class ClassificationTrainingApp:
         parser = argparse.ArgumentParser()
         parser.add_argument('--batch-size',
             help='Batch size to use for training',
-            default=24,
+            default=64,
             type=int,
         )
         parser.add_argument('--num-workers',
@@ -109,8 +109,8 @@ class ClassificationTrainingApp:
         # if self.cli_args.augmented or self.cli_args.augment_noise:
             self.augmentation_dict['noise'] = 25.0
 
-        self.use_cuda = torch.cuda.is_available()
-        self.device = torch.device("cuda" if self.use_cuda else "cpu")
+        self.use_cuda = True
+        self.device = torch.device("cuda")
 
         self.model = self.initModel()
         self.optimizer = self.initOptimizer()
@@ -138,10 +138,6 @@ class ClassificationTrainingApp:
             for n, p in model.named_parameters():
                 if n.split('.')[0] not in finetune_blocks:
                     p.requires_grad_(False)
-        if self.use_cuda:
-            log.info("Using CUDA; {} devices.".format(torch.cuda.device_count()))
-            if torch.cuda.device_count() > 1:
-                model = nn.DataParallel(model)
             model = model.to(self.device)
         return model
 

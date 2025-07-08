@@ -48,6 +48,9 @@ class LunaModel(nn.Module):
 
 
     def forward(self, input_batch):
+
+        assert input_batch.device.type == 'cuda', "입력 텐서가 gpu에없습니다."
+
         bn_output = self.tail_batchnorm(input_batch)
 
         block_out = self.block1(bn_output)
